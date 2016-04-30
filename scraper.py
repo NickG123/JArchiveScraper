@@ -4,7 +4,7 @@ import requests
 
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-from flask import Flask, jsonify, abort
+from flask import Flask, jsonify, abort, request
 from retrying import retry
 from sets import Set
 
@@ -79,12 +79,23 @@ def get_random_clue_from_game(game):
     question, answer = get_question(game, round, category, value)
     
     return category_name, value, round, question, answer
-
-@retry(retry_on_exception=retry_if_jeopardy_error)
-def get_random_clue(max_game):
+    
+def get_random_category_from_game(game, round):
+    category = random.randint(1, 6)
+    category_name = get_categories(game, round)[category - 1]
+    questions, answers = zip(*[get_question(game, round, category, value) for value in range(1, 6)])
+    return category_name, questions, answers
+    
+    
+def get_random_game_id(max_game):
     id = None
     while id is None or id in banned_games:
         id = random.randint(1, max_game)
+    return id
+
+@retry(retry_on_exception=retry_if_jeopardy_error)
+def get_random_clue(max_game):
+    id = get_random_game_id(max_game)
     game = get_game(id)
     category_name, value, round, question, answer = get_random_clue_from_game(game)
     date = get_date(game)
@@ -92,18 +103,45 @@ def get_random_clue(max_game):
     
 max_game = None
 latest_update = datetime.now()
+
+@retry(retry_on_exception=retry_if_jeopardy_error)
+def get_random_category(max_game, round):
+    id = get_random_game_id(max_game)
+    game = get_game(id)
+    category_name, questions, answers = get_random_category_from_game(game, round)
+    date = get_date(game)
+    return category_name, id, questions, answers, date
+    
+def update():
+    global max_game
+    global latest_update
+    if max_game is None or datetime.now() - latest_update > timedelta(1):
+        max_game = get_latest_id()
+        latest_update = datetime.now()
     
 @app.route("/")
 def get_random():
     try:
-        global max_game
-        global latest_update
-        if max_game is None or datetime.now() - latest_update > timedelta(1):
-            max_game = get_latest_id()
-            latest_update = datetime.now()
+        update()
         category_name, value, id, round, question, answer, date = get_random_clue(max_game)
         result = {"category": category_name, "value": value * 200 * round, "round": "Jeopardy" if round == 1 else "Double Jeopardy", "question": question, "answer": answer, "date": date }
         return jsonify(result)
     except Exception as ex:
         logging.error("An unexpected error occurred", exc_info=ex)
         abort(500)
+        
+@app.route("/category")
+def get_category():
+    try:
+        round = request.args.get('round', None)
+        round = int(round) if round is not None else random.randint(1, 2)
+        update()
+        category_name, id, questions, answers, date = get_random_category(max_game, round)
+        result = {"category": category_name, "round": "Jeopardy" if round == 1 else "Double Jeopardy", "questions": questions, "answers": answers, "date": date }
+        return jsonify(result)
+    except Exception as ex:
+        logging.error("An unexpected error occurred", exc_info=ex)
+        abort(500)
+    
+        
+        
