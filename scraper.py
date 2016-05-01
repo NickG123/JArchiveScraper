@@ -57,7 +57,7 @@ def get_question(game, round, category, value):
     soup = BeautifulSoup(answer_text, "html.parser")
     answer = soup.em.text
     
-    if question.a is not None:
+    if question.a is not None or "seen here" in question.text.lower():
         raise LinkClueException("Question contains a link")
     return question.text, answer
     
@@ -142,6 +142,3 @@ def get_category():
     except Exception as ex:
         logging.error("An unexpected error occurred", exc_info=ex)
         abort(500)
-    
-        
-        
