@@ -1,7 +1,7 @@
 from tornado.wsgi import WSGIContainer
 from tornado.httpserver import HTTPServer
 from tornado.ioloop import IOLoop
-from scraper import app
+from scraper_flask import app
 
 import os
 from configparser import RawConfigParser
