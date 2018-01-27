@@ -4,7 +4,7 @@ from tornado.ioloop import IOLoop
 from scraper import app
 
 import os
-from ConfigParser import RawConfigParser
+from configparser import RawConfigParser
 
 here = os.path.dirname(__file__)
 parser = RawConfigParser()
