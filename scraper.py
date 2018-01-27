@@ -5,8 +5,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from retrying import retry
 
-endpoint = "http://j-archive.com"
-banned_games = set()
+ENDPOINT = "http://j-archive.com"
 
 
 class JeopardyException(Exception):
@@ -34,20 +33,21 @@ class JeopardyScraper(object):
         self.max_game = None
         self.latest_update = datetime.now()
         self.update()
+        self.banned_games = set()
 
     def get_latest_id(self):
-        resp = requests.get(endpoint)
+        resp = requests.get(ENDPOINT)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
         footers = soup.findAll("td", {"class": "splash_clue_footer"})
         return max(int(x.a['href'].split('=')[-1]) for x in footers)
 
     def get_game(self, game_id):
-        resp = requests.get("{0}/showgame.php".format(endpoint), params={'game_id': game_id})
+        resp = requests.get("{0}/showgame.php".format(ENDPOINT), params={'game_id': game_id})
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
         if soup.find("div", {"id": "jeopardy_round"}) is None or soup.find("div", {"id": "double_jeopardy_round"}) is None:
-            banned_games.add(id)
+            self.banned_games.add(id)
             raise GameMissingException("Game does not exist")
         return soup
 
@@ -96,7 +96,7 @@ class JeopardyScraper(object):
     def get_random_game_id(self):
         self.update()
         game_id = None
-        while game_id is None or game_id in banned_games:
+        while game_id is None or game_id in self.banned_games:
             game_id = random.randint(1, self.max_game)
         return game_id
 
